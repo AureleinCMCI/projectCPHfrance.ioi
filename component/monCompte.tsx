@@ -1,20 +1,27 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
+// Typage du payload du JWT (adapte selon ta structure réelle)
+type JwtPayload = {
+  id: string;
+  name: string;
+  [key: string]: any;
+};
+
 export default function UpdateProfile() {
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState(null);
-  const [user, setUser] = useState(null);
+  const [name, setName] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<JwtPayload | null>(null);
 
   // Lire l'utilisateur connecté via le JWT
   useEffect(() => {
     const token = localStorage.getItem('jwt');
     if (token) {
       try {
-        const decoded = jwtDecode(token);
+        const decoded = jwtDecode<JwtPayload>(token);
         setUserId(decoded.id);
         setUser(decoded);
         setName(decoded.name); // Préremplir le champ nom
@@ -42,6 +49,9 @@ export default function UpdateProfile() {
     }
   };
 
+  const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => setName(e.target.value);
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
+
   return (
     <div>
       {/* Affichage de l'utilisateur connecté */}
@@ -56,12 +66,12 @@ export default function UpdateProfile() {
       )}
       <input
         value={name}
-        onChange={e => setName(e.target.value)}
+        onChange={handleNameChange}
         placeholder="Nouveau nom"
       />
       <input
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={handlePasswordChange}
         placeholder="Nouveau mot de passe"
         type="password"
       />

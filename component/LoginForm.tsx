@@ -1,40 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import style from './style/login.module.css';
 
-function LoginForm() {
+const LoginForm: React.FC = () => {
   // États pour le formulaire de connexion
-  const [name, setname] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [name, setName] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
 
   // États pour le formulaire d'inscription
-  const [signupName, setSignupName] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
+  const [signupName, setSignupName] = useState<string>('');
+  const [signupPassword, setSignupPassword] = useState<string>('');
 
   // État pour l'animation du container
-  const [rightPanelActive, setRightPanelActive] = useState(false);
+  const [rightPanelActive, setRightPanelActive] = useState<boolean>(false);
 
   // Pour la navigation
   const router = useRouter();
 
   // Gestion du submit (connexion)
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, password })
+        body: JSON.stringify({ name, password }),
       });
       const data = await res.json();
       setMessage(data.message);
       if (res.ok && data.success) {
         if (data.token) {
           localStorage.setItem('jwt', data.token);
-      }
+        }
         router.push('/hom'); // ← Mets ici la route de ta page d'accueil
       }
     } catch (err) {
@@ -43,7 +43,7 @@ function LoginForm() {
   };
 
   // Gestion du submit (inscription)
-  const handleSignUp = async (e) => {
+  const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/signup', {
@@ -58,7 +58,7 @@ function LoginForm() {
       if (!res.ok) throw new Error(data.error || 'Erreur lors de l\'inscription');
       setMessage('Inscription réussie ! Connecte-toi');
       setRightPanelActive(false); // Retourne au formulaire de connexion
-    } catch (err) {
+    } catch (err: any) {
       setMessage(err.message);
     }
   };
@@ -84,14 +84,14 @@ function LoginForm() {
               type="text"
               placeholder="Name"
               value={signupName}
-              onChange={(e) => setSignupName(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSignupName(e.target.value)}
             />
             <input
               className={style.formInput}
               type="password"
-              placeholder="password"
+              placeholder="Password"
               value={signupPassword}
-              onChange={(e) => setSignupPassword(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSignupPassword(e.target.value)}
             />
             <button className={style.formButton} type="submit">Sign Up</button>
             {message && <p className={style.formText}>{message}</p>}
@@ -111,15 +111,16 @@ function LoginForm() {
             <input
               className={style.formInput}
               type="text"
+              placeholder="Name"
               value={name}
-              onChange={e => setname(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
             <input
               className={style.formInput}
               type="password"
               placeholder="Password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             />
             <a className={style.formLink} href="#">Forgot your password?</a>
             <button className={style.formButton} type="submit">Sign In</button>
@@ -144,7 +145,7 @@ function LoginForm() {
             </div>
             <div className={style.overlayPanel + ' ' + style.overlayRight}>
               <h1 className={style.formTitle}>Bonjour, bien-aimé</h1>
-              <p className={style.formText}>creé ton compte avant de débuté</p>
+              <p className={style.formText}>crée ton compte avant de débuter</p>
               <button
                 className={`${style.formButton} ${style.ghost}`}
                 id="signUp"
@@ -159,6 +160,4 @@ function LoginForm() {
       </div>
     </div>
   );
-}
-
-export default LoginForm;
+};
