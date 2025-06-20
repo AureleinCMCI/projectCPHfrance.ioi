@@ -4,7 +4,7 @@ import React, { useState, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import style from './style/login.module.css';
 
-const LoginForm: React.FC = () => {
+export const LoginForm: React.FC = () => {
   // États pour le formulaire de connexion
   const [name, setName] = useState<string>('');
   const [password, setPassword] = useState<string>('');

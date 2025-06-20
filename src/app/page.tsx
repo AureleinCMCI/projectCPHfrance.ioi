@@ -1,9 +1,15 @@
-import  LoginForm  from '../../component/LoginForm';
+import { LoginForm } from '../../component/LoginForm';
+import style from '../../../component/style/login.module.css';
 
-export default function LoginPage() {
+export default function LoginFrom() {
   return (
-    <main >
-      <LoginForm />
-    </main>
+    <html>
+      <body>
+        <main>
+          <LoginForm />
+        </main>
+      </body>
+    </html>
+
   );
 }
