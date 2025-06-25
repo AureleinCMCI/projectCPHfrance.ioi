@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (err: any) {
     console.error("Erreur serveur :", err);
-    return new Response(ddddd
+    return new Response(
       JSON.stringify({ error: "Erreur serveur", details: err.message }),
       { status: 500 }
     );
