@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/clients';
+import type { NextRequest } from 'next/server';
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     const supabase = createClient();
-    const { name, password } = await request.json();
+    const { name, password }: { name: string; password: string } = await request.json();
     console.log("Tentative d'inscription avec :", { name, password });
 
     // Vérifie si le nom existe déjà
@@ -36,7 +37,7 @@ export async function POST(request) {
     }
 
     return new Response(JSON.stringify({ message: 'Inscription réussie !', user: data, success: true }), { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erreur serveur :", err);
     return new Response(JSON.stringify({ error: "Erreur serveur", details: err.message }), { status: 500 });
   }

@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Container, Title, Table, Center, Loader } from '@mantine/core';
+import { Container, Title, Table, Center, Loader , Button ,  } from '@mantine/core';
+import Link from 'next/link';
 
 // Définis le type pour un élément de l'inventaire
 type InventaireItem = {
@@ -38,6 +39,12 @@ export default function Inventaire() {
           <Loader />
         </Center>
       ) : (
+        <>
+            <Link href="/inventaire/ScannerResception" passHref>
+              <Button >
+                Inventaire
+              </Button>
+            </Link>
         <Table striped highlightOnHover>
           <thead>
             <tr>
@@ -45,6 +52,7 @@ export default function Inventaire() {
               <th>Auteur</th>
               <th>Quantité</th>
               <th>Prix</th>
+              
             </tr>
           </thead>
           <tbody>
@@ -58,7 +66,9 @@ export default function Inventaire() {
             ))}
           </tbody>
         </Table>
+        </>
       )}
+      
     </Container>
   );
 }

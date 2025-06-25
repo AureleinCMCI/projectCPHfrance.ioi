@@ -37,28 +37,13 @@ export default function Hom() {
         <Text color="dimmed" mb="lg">
           Ceci est une page d’accueil construite avec Mantine et Next.js.
         </Text>
-
-        {/* Affichage du jeton JWT */}
-        {token && (
-          <Text color="gray" mb="md" size="xs" style={{ wordBreak: 'break-all' }}>
-            <b>Jeton JWT :</b> {token}
-          </Text>
-        )}
-
-        {/* Affichage optionnel de l'utilisateur connecté */}
-        {user && (
-          <Text color="teal" mb="md" size="sm">
-            Utilisateur connecté : {user.name ?? 'inconnu'}
-          </Text>
-        )}
-
         <Center p={15}>
-          <Link href="/commande" passHref legacyBehavior>
+          <Link href="/commande" passHref>
             <Button component="a">
               Passer une commande
             </Button>
           </Link>
-          <Link href="/inventaire" passHref legacyBehavior>
+          <Link href="/inventaire" passHref>
             <Button component="a" ml={30}>
               Inventaire
             </Button>

@@ -4,7 +4,7 @@ import { Container, Center, Title, Text, Button, Paper, Group, Popover, TextInpu
 import { IconCamera } from '@tabler/icons-react';
 import Quagga from '@ericblade/quagga2';
 
-export default function Hom() {
+export default function Commande() {
   const [formOpened, setFormOpened] = useState(false);
   const [result, setResult] = useState('');
   const [popoverOpened, setPopoverOpened] = useState(false);
