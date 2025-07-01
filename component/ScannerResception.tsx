@@ -59,16 +59,13 @@ export default function Commande() {
     }
   }, [popoverOpened, scannerReady]);
 
-  // ✅ CORRECTION: Utiliser e.target.name au lieu de e.target.title
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Soumission du formulaire avec validation
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation des champs requis
     if (!formData.title.trim()) {
       alert("Le titre du livre est obligatoire !");
       return;
@@ -81,40 +78,16 @@ export default function Commande() {
       alert("L'ISBN est obligatoire !");
       return;
     }
-
     try {
-      // 1. Envoi des données à la table livre
-      const livreRes = await fetch('/api/livre', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formData.title,
-          author: formData.author,
-          isbn: Number(formData.isbn),
-          description: formData.description || '',
-        }),
-      });
-
-      if (!livreRes.ok) {
-        const errorData = await livreRes.json();
-        alert(`Erreur lors de l'ajout du livre: ${errorData.error || 'Erreur inconnue'}`);
-        return;
-      }
-
-      // Récupère l'id du livre
-      const livre = await livreRes.json();
-      const livreId = livre.data?.id || livre.id;
-
-      // 2. Envoi des données à la table inventaire
       const inventaireRes = await fetch('/api/inventaire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: formData.title,        // ✅ CORRECTION: Utiliser 'name' pour inventaire
-          author: formData.author,
+          title: String(formData.title),      
+          author: String(formData.author),
           quantite: Number(formData.quantite),
           price: Number(formData.price),
-          livre_id: livreId,
+          isbn: Number(formData.isbn)
         }),
       });
 

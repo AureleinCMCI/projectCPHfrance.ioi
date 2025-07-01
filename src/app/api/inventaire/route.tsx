@@ -8,6 +8,7 @@ type Inventaire = {
   title: string;
   quantite: number;
   price: number;
+  isbn: number;
 };
 // affiche les infos 
 export async function GET(req: NextRequest) {
@@ -27,10 +28,10 @@ const { data, error } = await supabase.from('inventaire').select('*')
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { author, title, quantite, price } = await request.json() as Inventaire;
+    const { author, title, quantite, price , isbn} = await request.json() as Inventaire;
 
     // Insertion d'une nouvelle commande
-    const { data, error } = await supabase.from('inventaire').insert([{ title, author, quantite, price }]).select().maybeSingle();
+    const { data, error } = await supabase.from('inventaire').insert([{ title, author, quantite, price , isbn }]).select().maybeSingle();
 
 
 
