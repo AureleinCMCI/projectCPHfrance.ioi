@@ -1,25 +1,25 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/clients';
 
-type Inventaire = {
+// Exemple de typage pour une ligne de la table "inventaire"
+type HistoriqueResception = {
   id?: number; // id généré par la BDD
-  author: string;
-  name: string;
+  user_id: number;
+  date_reception: number;
   quantite: number;
-  price: number;
-};
+  livre_id: number;
+  info: number;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { author, name, quantite, price } = await request.json() as Inventaire;
+    const {  id, user_id, date_reception, quantite , livre_id , info} = await request.json() as HistoriqueResception;
 
     // Insertion d'une nouvelle commande
-    const { data, error } = await supabase
-      .from('commande')
-      .insert([{ name, author, quantite, price }])
-      .select()
-      .maybeSingle();
+    const { data, error } = await supabase.from('inventaire').insert([{ id, user_id, quantite, date_reception , livre_id , info }]).select().maybeSingle();
+
+
 
     console.log("Résultat Supabase :", data, error);
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     return new Response(
-      JSON.stringify({ message: 'Inscription réussie !', user: data, success: true }),
+      JSON.stringify({ message: 'ajout réussie', user: data, success: true }),
       { status: 201 }
     );
   } catch (err: any) {
