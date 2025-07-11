@@ -1,16 +1,30 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Container, Center, Title, Text, Button, Paper, Group, Popover,
-  TextInput, Modal, CloseButton, Textarea, Table, Loader, Checkbox
+  Button,
+  Center,
+  Checkbox,
+  CloseButton,
+  Container,
+  Group,
+  Loader,
+  Modal,
+  Paper,
+  Popover,
+  Table,
+  Text,
+  Textarea,
+  TextInput,
+  Title
 } from '@mantine/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 
-import { IconCamera , IconEdit } from '@tabler/icons-react';
-import Quagga from '@ericblade/quagga2';
+import Quagga, { QuaggaJSResultObject } from '@ericblade/quagga2';
+import { IconCamera, IconEdit } from '@tabler/icons-react';
 
 type InventaireItem = {
+  id: number;
   livre_id: number;
   title: string;
   author: string;
@@ -48,10 +62,10 @@ export default function   Resception() {
 
   // États pour la modal d'affichage des détails des livres sélectionnés
   const [detailsOpened, setDetailsOpened] = useState(false);
-  const [selectedBooks, setSelectedBooks] = useState<InventaireItem[]>([]);
+  //const [selectedBooks, setSelectedBooks] = useState<InventaireItem[]>([]);
 
   // Pour mémoriser la quantité à ajouter pour chaque livre
-  const [ajouts, setAjouts] = useState<{ [livre_id: number]: number }>({});
+  const [ajouts, setAjouts] = useState<{ [id: number]: number }>({});
 
   // Pour mémoriser les livres sélectionnés et modifiables (notamment ISBN)
   const [editedBooks, setEditedBooks] = useState<InventaireItem[]>([]);
@@ -76,12 +90,12 @@ export default function   Resception() {
         if (!err) Quagga.start();
       });
 
-      const onDetected = (data: any) => {
+      const onDetected = (data: QuaggaJSResultObject) => {
         if (data?.codeResult?.code) {
           setResult(data.codeResult.code);
           setFormData((prev) => ({
             ...prev,
-            isbn: data.codeResult.code,
+            isbn: data.codeResult.code ?? '',
           }));
         }
       };
@@ -187,16 +201,16 @@ export default function   Resception() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Récupère les livres sélectionnés
-    const books = filteredInventaire.filter(item => selected.includes(item.livre_id));
-    setSelectedBooks(books);
+    const books = filteredInventaire.filter(item => selected.includes(item.id));
+    //setSelectedBooks(books);
 
     // Copie pour édition locale de l'ISBN
     setEditedBooks(books.map(book => ({ ...book })));
 
     // Réinitialise les ajouts à 0 pour chaque livre sélectionné
-    const initialAjouts: { [livre_id: number]: number } = {};
+    const initialAjouts: { [id: number]: number } = {};
     books.forEach(book => {
-      initialAjouts[book.livre_id] = 0;
+      initialAjouts[book.id] = 0;
     });
     setAjouts(initialAjouts);
 
@@ -206,18 +220,18 @@ export default function   Resception() {
   };
 
   // Gestion du changement de la quantité à ajouter
-  const handleAjoutChange = (livre_id: number, value: string) => {
+  const handleAjoutChange = (id: number, value: string) => {
     setAjouts(prev => ({
       ...prev,
-      [livre_id]: Number(value)
+      [id]: Number(value)
     }));
   };
 
   // Gestion du changement de l'ISBN
-  const handleIsbnChange = (livre_id: number, newIsbn: string) => {
+  const handleIsbnChange = (id: number, newIsbn: string) => {
     setEditedBooks(prev =>
       prev.map(book =>
-        book.livre_id === livre_id ? { ...book, isbn: Number(newIsbn) } : book
+        book.id === id ? { ...book, isbn: Number(newIsbn) } : book
       )
     );
   };
@@ -230,36 +244,38 @@ export default function   Resception() {
     }
     try {
       setLoading(true);
-      // On envoie l'ISBN modifié si besoin (tu peux adapter le backend si tu veux le mettre à jour)
+      // On envoie l'id (clé primaire) pour l'incrémentation
       const res = await fetch('/api/ScannerResception', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id: livre.livre_id, ajout, isbn: livre.isbn }),
+        body: JSON.stringify({ id: livre.id, ajout, isbn: livre.isbn }),
       });
-      if (!res.ok) throw new Error('Erreur lors de l’incrémentation');
+      if (!res.ok) throw new Error('Erreur lors de l\'incrémentation');
 
       const response = await fetch('/api/inventaire', { method: 'GET' });
       const result = await response.json();
       setInventaire(result.data || []);
       setLoading(false);
       alert(`Quantité du livre "${livre.title}" incrémentée de ${ajout} !`);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erreur:', error);
       setLoading(false);
-      alert('Erreur lors de l’incrémentation');
+      alert('Erreur lors de l\'incrémentation');
     }
   };
-  const updateIsbn = async (livre_id: number, isbn: number) => {
+  const updateIsbn = async (id: number, isbn: number) => {
     try {
       const res = await fetch('/api/ScannerResception', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id, isbn }),
+        body: JSON.stringify({ id, isbn }),
       });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour de l\'ISBN');
-      // Optionnel : tu peux rafraîchir l’inventaire ici si besoin
+      // Optionnel : tu peux rafraîchir l'inventaire ici si besoin
       // await refreshInventaire();
       alert('ISBN mis à jour avec succès !');
     } catch (err) {
+      console.error('Erreur:', err);
       alert('Erreur lors de la mise à jour de l\'ISBN');
     }
   };
@@ -426,7 +442,7 @@ export default function   Resception() {
         <form onSubmit={handleSubmit}>
           <Paper shadow="xs" p="md" mt="md" withBorder>
             <Title order={2} mb="md">
-              Livres disponibles dans l'inventaire
+              Livres disponibles dans l&apos;inventaire
             </Title>
             <TextInput
               placeholder="Rechercher par titre ou auteur"
@@ -443,7 +459,6 @@ export default function   Resception() {
                 <thead>
                   <tr>
                     <th>Sélectionner</th>
-                    <th>ID</th>
                     <th>Titre</th>
                     <th>Auteur</th>
                     <th>Quantité</th>
@@ -453,14 +468,13 @@ export default function   Resception() {
                 </thead>
                 <tbody>
                   {filteredInventaire.map((item) => (
-                    <tr key={item.livre_id}>
+                    <tr key={item.id}>
                       <td>
                         <Checkbox
-                          checked={selected.includes(item.livre_id)}
-                          onChange={() => handleCheckbox(item.livre_id)}
+                          checked={selected.includes(item.id)}
+                          onChange={() => handleCheckbox(item.id)}
                         />
                       </td>
-                      <td>{item.livre_id}</td>
                       <td>{item.title}</td>
                       <td>{item.author}</td>
                       <td>{item.quantite}</td>
@@ -497,21 +511,20 @@ export default function   Resception() {
           <Text>Aucun livre sélectionné.</Text>
         ) : (
           editedBooks.map(book => (
-            <Paper key={book.livre_id} shadow="xs" p="md" mb="md" withBorder>
+            <Paper key={book.id} shadow="xs" p="md" mb="md" withBorder>
               <TextInput label="Titre" value={book.title} readOnly mb="md" />
               <TextInput label="Auteur" value={book.author} readOnly mb="md" />
-              <TextInput label="id" value={book.livre_id} readOnly mb="md" />
              <Group gap="xs" mb="md">
                 <TextInput
                   label="ISBN"
                   value={book.isbn.toString()}
-                  onChange={e => handleIsbnChange(book.livre_id, e.target.value)}
+                  onChange={e => handleIsbnChange(book.id, e.target.value)}
                   style={{ flex: 1 }}
                 />
                 <Button
                   variant="subtle"
                   color="blue"
-                  onClick={() => updateIsbn(book.livre_id, Number(book.isbn))}
+                  onClick={() => updateIsbn(book.id, Number(book.isbn))}
                   title="Mettre à jour l'ISBN"
                   px={6}
                 >
@@ -523,14 +536,14 @@ export default function   Resception() {
               <TextInput
                 label="Quantité à ajouter"
                 type="number"
-                value={ajouts[book.livre_id] ?? ''}
-                onChange={e => handleAjoutChange(book.livre_id, e.target.value)}
+                value={ajouts[book.id] ?? ''}
+                onChange={e => handleAjoutChange(book.id, e.target.value)}
                 mb="md"
                 min={1}
               />
               <Button
                 mt="md"
-                onClick={() => incrementInventaire(book, ajouts[book.livre_id] || 0)}
+                onClick={() => incrementInventaire(book, ajouts[book.id] || 0)}
               >
                 Valider (incrémenter la quantité)
               </Button>

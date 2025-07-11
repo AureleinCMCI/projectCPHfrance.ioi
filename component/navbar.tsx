@@ -1,18 +1,45 @@
 'use client';
 
-import { Group, Box, Anchor } from '@mantine/core';
+import { Anchor, Box, Burger, CloseButton, Drawer, Group } from '@mantine/core';
+import { useState } from 'react';
+import styles from './style/nav.module.css';
 
-export default function SimpleNavbar() {
+export default function Navbar() {
+  const [opened, setOpened] = useState(false);
+
   return (
-    <Box component="nav" px="md" py="sm" style={{ borderBottom: '1px solid #eee' }}>
-      <Group gap="lg">
-        {/* Logo à gauche */}
-        <span style={{ fontWeight: 'bold', fontSize: 20 }}>MonLogo</span>
-        {/* Liens de menu à gauche, à côté du logo */}
-        <Anchor href="/hom" underline="hover">Accueil</Anchor>
-        <Anchor href="/compte" underline="hover">monCompte</Anchor>
-        <Anchor href="/contact" underline="hover">Contact</Anchor>
-      </Group>
-    </Box>
+    <>
+      {/* Bouton burger flottant à gauche */}
+      <Box className={styles.burgerBox}>
+        <Burger
+          opened={opened}
+          onClick={() => setOpened((o) => !o)}
+          aria-label="Ouvrir le menu"
+          size="md"
+        />
+      </Box>
+
+      {/* Sidebar Drawer à gauche */}
+      <Drawer
+        opened={opened}
+        onClose={() => setOpened(false)}
+        title={<span style={{ fontWeight: 'bold', fontSize: 20 }}>nav bar</span>}
+        padding="md"
+        size="xs"
+        position="left"
+        overlayProps={{ opacity: 0.5, blur: 2 }}
+        withCloseButton={false}
+      >
+        <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <CloseButton aria-label="Fermer le menu" onClick={() => setOpened(false)} />
+        </Box>
+        <Group gap="xs">
+          <Anchor href="#" underline="hover">site link</Anchor>
+          <Anchor href="#" underline="hover">site link</Anchor>
+          <Anchor href="#" underline="hover">site link</Anchor>
+          <Anchor href="#" underline="hover">site link</Anchor>
+        </Group>
+      </Drawer>
+    </>
   );
 }
