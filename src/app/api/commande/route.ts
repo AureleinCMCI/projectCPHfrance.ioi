@@ -1,31 +1,25 @@
 import { createClient } from '@/lib/supabase/clients';
 import { NextRequest } from 'next/server';
 
+
 export async function GET() {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase.from('commande').select('*');
-
+  const supabase = createClient();
+  const { data, error } = await supabase.from('commande').select('*');
+  
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
-    }
-
-    return new Response(JSON.stringify({ data }), { status: 200 });
-  } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: "Erreur serveur", details: err.message }),
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
-}
+  return new Response(JSON.stringify({ data }), { status:  200 }); 
+  
+} 
 
 /* delete Quantité inventaire */
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { livre_id, quantite , user_id} = await request.json();
+    const { livre_id, quantite , user_id , vendeur , title} = await request.json();
 
-    const { data, error } = await supabase.from('commande').insert([{ livre_id , quantite, user_id}]).select();
+    const { data, error } = await supabase.from('commande').insert([{ livre_id , quantite, user_id , vendeur , title}]).select();
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), { status: 400 });
@@ -35,9 +29,10 @@ export async function POST(request: NextRequest) {
       JSON.stringify({ message: 'Quantité mise à jour', produit: data, success: true }),
       { status: 200 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     return new Response(
-      JSON.stringify({ error: "Erreur serveur", details: err.message }),
+      JSON.stringify({ error: "Erreur serveur", details: message }),
       { status: 500 }
     );
   }
