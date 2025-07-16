@@ -1,22 +1,35 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Container, Center, Title, Text, Button, Paper, Group, Popover,
-  TextInput, Modal, CloseButton, Textarea, Table, Loader, Checkbox
+  Badge,
+  Button,
+  Center,
+  Checkbox,
+  Group,
+  Loader,
+  Modal,
+  Paper,
+  Table,
+  Text,
+  Textarea,
+  TextInput,
+  Title
 } from '@mantine/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 
-import { IconCamera , IconEdit } from '@tabler/icons-react';
-import Quagga from '@ericblade/quagga2';
-
+import Quagga, { QuaggaJSResultObject } from '@ericblade/quagga2';
+import { IconCamera, IconEdit } from '@tabler/icons-react';
+import styles from './style/ScannerResception.module.css';
 type InventaireItem = {
+  id: number;
   livre_id: number;
   title: string;
   author: string;
   quantite: number;
   price: number;
   isbn: number;
+  livre?: { image?: string };
 };
 
 export default function   Resception() {
@@ -43,20 +56,15 @@ export default function   Resception() {
   const [loading, setLoading] = useState<boolean>(true);
 
   // États pour la sélection de livres dans la modal
-  const [opened, setOpened] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
 
   // États pour la modal d'affichage des détails des livres sélectionnés
   const [detailsOpened, setDetailsOpened] = useState(false);
-  const [selectedBooks, setSelectedBooks] = useState<InventaireItem[]>([]);
 
-  // Pour mémoriser la quantité à ajouter pour chaque livre
-  const [ajouts, setAjouts] = useState<{ [livre_id: number]: number }>({});
+  const [ajouts, setAjouts] = useState<{ [id: number]: number }>({});
 
-  // Pour mémoriser les livres sélectionnés et modifiables (notamment ISBN)
   const [editedBooks, setEditedBooks] = useState<InventaireItem[]>([]);
 
-  // Callback ref pour scanner
   const setScannerNode = useCallback((node: HTMLDivElement | null) => {
     scannerRef.current = node;
     setScannerReady(!!node);
@@ -76,13 +84,16 @@ export default function   Resception() {
         if (!err) Quagga.start();
       });
 
-      const onDetected = (data: any) => {
+      const onDetected = (data: QuaggaJSResultObject) => {
         if (data?.codeResult?.code) {
           setResult(data.codeResult.code);
           setFormData((prev) => ({
             ...prev,
-            isbn: data.codeResult.code,
+            isbn: data.codeResult.code ?? '',
           }));
+          // Ouvre automatiquement le formulaire si tu veux :
+          // setPopoverOpened(false);
+          // setFormOpened(true);
         }
       };
       Quagga.onDetected(onDetected);
@@ -132,15 +143,36 @@ export default function   Resception() {
       return;
     }
     try {
-      const inventaireRes = await fetch('/api/inventaire', {
+      // 1. Créer le livre (avec image)
+      const livreRes = await fetch('/api/livre', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: String(formData.title),
           author: String(formData.author),
+          description: formData.description,
+          isbn: String(formData.isbn),
+          image: capturedImage
+        }),
+      });
+      const livreData = await livreRes.json();
+      const livreId = livreData?.user?.id;
+      if (!livreId) {
+        alert("Erreur lors de la création du livre");
+        return;
+      }
+
+      // 2. Créer l'inventaire lié à ce livre
+      const inventaireRes = await fetch('/api/inventaire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          livre_id: livreId,
+          title: String(formData.title),
+          author: String(formData.author),
           quantite: Number(formData.quantite),
           price: Number(formData.price),
-          isbn: Number(formData.isbn)
+          isbn: String(formData.isbn)
         }),
       });
 
@@ -162,6 +194,7 @@ export default function   Resception() {
         image: ''
       });
       setResult('');
+      setCapturedImage('');
 
       // Rafraîchir l'inventaire après ajout
       setLoading(true);
@@ -187,37 +220,36 @@ export default function   Resception() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Récupère les livres sélectionnés
-    const books = filteredInventaire.filter(item => selected.includes(item.livre_id));
-    setSelectedBooks(books);
+    const books = filteredInventaire.filter(item => selected.includes(item.id));
+    //setSelectedBooks(books);
 
     // Copie pour édition locale de l'ISBN
     setEditedBooks(books.map(book => ({ ...book })));
 
     // Réinitialise les ajouts à 0 pour chaque livre sélectionné
-    const initialAjouts: { [livre_id: number]: number } = {};
+    const initialAjouts: { [id: number]: number } = {};
     books.forEach(book => {
-      initialAjouts[book.livre_id] = 0;
+      initialAjouts[book.id] = 0;
     });
     setAjouts(initialAjouts);
 
     setDetailsOpened(true);
-    setOpened(false);
     setSelected([]);
   };
 
   // Gestion du changement de la quantité à ajouter
-  const handleAjoutChange = (livre_id: number, value: string) => {
+  const handleAjoutChange = (id: number, value: string) => {
     setAjouts(prev => ({
       ...prev,
-      [livre_id]: Number(value)
+      [id]: Number(value)
     }));
   };
 
   // Gestion du changement de l'ISBN
-  const handleIsbnChange = (livre_id: number, newIsbn: string) => {
+  const handleIsbnChange = (id: number, newIsbn: string) => {
     setEditedBooks(prev =>
       prev.map(book =>
-        book.livre_id === livre_id ? { ...book, isbn: Number(newIsbn) } : book
+        book.id === id ? { ...book, isbn: Number(newIsbn) } : book
       )
     );
   };
@@ -230,36 +262,36 @@ export default function   Resception() {
     }
     try {
       setLoading(true);
-      // On envoie l'ISBN modifié si besoin (tu peux adapter le backend si tu veux le mettre à jour)
+      // On envoie l'id (clé primaire) pour l'incrémentation
       const res = await fetch('/api/ScannerResception', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id: livre.livre_id, ajout, isbn: livre.isbn }),
+        body: JSON.stringify({ id: livre.id, ajout, isbn: livre.isbn }),
       });
-      if (!res.ok) throw new Error('Erreur lors de l’incrémentation');
+      if (!res.ok) throw new Error('Erreur lors de l\'incrémentation');
 
       const response = await fetch('/api/inventaire', { method: 'GET' });
       const result = await response.json();
       setInventaire(result.data || []);
       setLoading(false);
       alert(`Quantité du livre "${livre.title}" incrémentée de ${ajout} !`);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erreur:', error);
       setLoading(false);
-      alert('Erreur lors de l’incrémentation');
+      alert('Erreur lors de l\'incrémentation');
     }
   };
-  const updateIsbn = async (livre_id: number, isbn: number) => {
+  const updateIsbn = async (id: number, livre_id: number, newIsbn: number, oldIsbn: number) => {
     try {
       const res = await fetch('/api/ScannerResception', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id, isbn }),
+        body: JSON.stringify({ id, livre_id, newIsbn, oldIsbn }),
       });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour de l\'ISBN');
-      // Optionnel : tu peux rafraîchir l’inventaire ici si besoin
-      // await refreshInventaire();
       alert('ISBN mis à jour avec succès !');
     } catch (err) {
+      console.error('Erreur:', err);
       alert('Erreur lors de la mise à jour de l\'ISBN');
     }
   };
@@ -269,223 +301,218 @@ export default function   Resception() {
     (item.author ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [capturedImage, setCapturedImage] = useState('');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+
+  // Ajoute la logique pour démarrer la caméra
+  useEffect(() => {
+    if (showCamera && videoRef.current) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode } }).then(stream => {
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      });
+    }
+    // Arrête la caméra quand on ferme
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [showCamera, facingMode]);
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    setCapturedImage(dataUrl);
+    setFormData(prev => ({ ...prev, image: dataUrl }));
+    setShowCamera(false);
+    // Arrêter la caméra
+    if (video.srcObject) {
+      (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+    }
+  };
+
   return (
-    <Container size="sm" my={40}>
-      {/* Modal du formulaire d'ajout */}
-      <Modal
-        opened={formOpened}
-        onClose={() => setFormOpened(false)}
-        title="Ajouter ou incrémenter un livre"
-        centered
-        size="xl"
-      >
-        <form onSubmit={handleFormSubmit}>
-          <TextInput
-            label="ISBN"
-            name="isbn"
-            value={formData.isbn}
-            onChange={handleFormChange}
-            required
-            mb="md"
-          />
-          <TextInput
-            label="Titre du livre"
-            name="title"
-            value={formData.title}
-            onChange={handleFormChange}
-            required
-            mb="md"
-          />
-          <TextInput
-            label="Auteur"
-            name="author"
-            value={formData.author}
-            onChange={handleFormChange}
-            required
-            mb="md"
-          />
-          <Textarea
-            label="Description"
-            name="description"
-            value={formData.description}
-            onChange={handleFormChange}
-            minRows={2}
-            mb="md"
-          />
-          <TextInput
-            label="Prix"
-            name="price"
-            value={formData.price}
-            onChange={handleFormChange}
-            required
-            mb="md"
-          />
-          <TextInput
-            label="Quantité"
-            name="quantite"
-            value={formData.quantite}
-            onChange={handleFormChange}
-            required
-            mb="md"
-          />
-          <Center h={100}>
-            <Button type="submit">Ajouter / Incrémenter</Button>
+    <div className={styles.bgGradient}>
+      <Paper shadow="xl" radius="lg" p="xl" withBorder className={styles.cardTable}>
+        <div className={styles.headerRow}>
+          <Title order={2} className={styles.title}>Liste des livres</Title>
+          <div className={styles.actions}>
+            <Button color="violet" radius="xl" onClick={() => setPopoverOpened(true)}>+ Ajouter un livre</Button>
+            <Button variant="outline" color="gray" radius="xl">Exporter</Button>
+          </div>
+        </div>
+        <TextInput
+          className={styles.searchInput}
+          placeholder="Rechercher par titre ou auteur..."
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          leftSection={<IconCamera size={18} />}
+          mb="md"
+        />
+        {loading ? (
+          <Center>
+            <Loader />
           </Center>
-        </form>
-      </Modal>
-
-      {/* Bloc Scanner */}
-      <Paper shadow="md" p="xl" radius="md" withBorder>
-        <Title order={1} mb="md">
-          Scanner un ISBN
-        </Title>
-        <Text color="dimmed" mb="lg">
-          Place le code-barres ISBN du livre devant la caméra.
-        </Text>
-        <Group mt="md">
-          <Popover
-            width={350} position="bottom"
-            withArrow
-            shadow="md"
-            opened={popoverOpened}
-            onChange={setPopoverOpened}
-            trapFocus
-            withinPortal={false}
-          >
-            <Popover.Target>
-              <Button
-                color={popoverOpened ? 'red' : 'blue'}
-                onClick={() => {
-                  setResult('');
-                  setPopoverOpened((o) => !o);
-                  setFormData((prev) => ({ ...prev, isbn: '' }));
-                }}
-                variant={popoverOpened ? 'outline' : 'filled'}
-                leftSection={<IconCamera />}
-              >
-                {popoverOpened ? 'Désactiver la caméra' : 'Activer la caméra'}
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <CloseButton aria-label="Afficher le formulaire"
-                onClick={() => {
-                  setPopoverOpened(false);
-                  setTimeout(() => setFormOpened(true), 200);
-                }}
-              />
-              <div
-                ref={setScannerNode}
-                style={{
-                  width: '100%',
-                  maxWidth: 350,
-                  height: 250,
-                  margin: '0 auto',
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                  background: '#000'
-                }}
-              />
-              <Text mt="sm" color="blue">
-                {result ? `ISBN détecté : ${result}` : 'Scanne un code-barres ISBN de livre'}
-              </Text>
-              <TextInput
-                label="ISBN"
-                name="isbn"
-                value={formData.isbn}
-                onChange={handleFormChange}
-                placeholder="Scanné ou à saisir manuellement"
-                mt="md"
-              />
-              <Center >
-              <Button aria-label="Afficher le formulaire"
-                onClick={() => {
-                  setPopoverOpened(false);
-                  setTimeout(() => setFormOpened(true), 200);
-                }}>
-                validé
-              </Button>
-              </Center>
-            </Popover.Dropdown>
-          </Popover>
-        </Group>
-        {!popoverOpened && result && (
-          <Text mt="sm" color="teal" size="xl">
-            ✅ ISBN détecté : {result}
-          </Text>
-        )}
-        <Center mt="xl">
-          <Button onClick={() => setFormOpened(true)}>
-            Ajouter / Incrémenter un livre manuellement
-          </Button>
-        </Center>
-      </Paper>
-
-      {/* Liste des livres dans une modal de sélection */}
-      <Button onClick={() => setOpened(true)} mt="xl">Sélectionner des livres</Button>
-      <Modal opened={opened} onClose={() => setOpened(false)} title="Sélectionner des livres" size="xl" centered>
-        <form onSubmit={handleSubmit}>
-          <Paper shadow="xs" p="md" mt="md" withBorder>
-            <Title order={2} mb="md">
-              Livres disponibles dans l'inventaire
-            </Title>
-            <TextInput
-              placeholder="Rechercher par titre ou auteur"
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
-              mb="md"
-            />
-            {loading ? (
-              <Center>
-                <Loader />
-              </Center>
-            ) : (
-              <Table striped highlightOnHover>
-                <thead>
-                  <tr>
-                    <th>Sélectionner</th>
-                    <th>ID</th>
-                    <th>Titre</th>
-                    <th>Auteur</th>
-                    <th>Quantité</th>
-                    <th>Prix</th>
-                    <th>ISBN</th>
-                  </tr>
-                </thead>
-                <tbody>
+        ) : (
+          <>
+          <div className={styles.tableContainer}>
+            <Table.ScrollContainer minWidth={900} type="native">
+              <Table striped highlightOnHover withColumnBorders className={styles.tableModern}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Sélectionner</Table.Th>
+                    <Table.Th>Image</Table.Th>
+                    <Table.Th>Titre</Table.Th>
+                    <Table.Th>Auteur</Table.Th>
+                    <Table.Th>Quantité</Table.Th>
+                    <Table.Th>Prix</Table.Th>
+                    <Table.Th>ISBN</Table.Th>
+                    <Table.Th>Statut</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
                   {filteredInventaire.map((item) => (
-                    <tr key={item.livre_id}>
-                      <td>
+                    <Table.Tr key={item.id}>
+                      <Table.Td>
                         <Checkbox
-                          checked={selected.includes(item.livre_id)}
-                          onChange={() => handleCheckbox(item.livre_id)}
+                          checked={selected.includes(item.id)}
+                          onChange={() => handleCheckbox(item.id)}
                         />
-                      </td>
-                      <td>{item.livre_id}</td>
-                      <td>{item.title}</td>
-                      <td>{item.author}</td>
-                      <td>{item.quantite}</td>
-                      <td>{item.price}</td>
-                      <td>{item.isbn}</td>
-                    </tr>
+                      </Table.Td>
+                      <Table.Td>
+                        {item.livre?.image ? (
+                          <img src={item.livre.image} alt="Livre" style={{ width: 40, height: 56, objectFit: 'cover', borderRadius: 6, boxShadow: '0 2px 8px #0001' }} />
+                        ) : (
+                          <span style={{ color: '#aaa', fontSize: 12 }}>Aucune</span>
+                        )}
+                      </Table.Td>
+                      <Table.Td>{item.title}</Table.Td>
+                      <Table.Td>{item.author}</Table.Td>
+                      <Table.Td>
+                        <Badge color={item.quantite > 5 ? 'green' : item.quantite > 0 ? 'yellow' : 'red'} variant="light" radius="sm">
+                          {item.quantite}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>{item.price} €</Table.Td>
+                      <Table.Td>{item.isbn}</Table.Td>
+                      <Table.Td>
+                        <Badge color={item.quantite > 5 ? 'green' : item.quantite > 0 ? 'yellow' : 'red'} variant="light" radius="sm">
+                          {item.quantite > 5 ? 'En stock' : item.quantite > 0 ? 'Faible' : 'Rupture'}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Button variant="subtle" color="gray" radius="xl" size="xs" onClick={() => setSelected([item.id])}>...</Button>
+                      </Table.Td>
+                    </Table.Tr>
                   ))}
-                </tbody>
+                </Table.Tbody>
               </Table>
-            )}
+            </Table.ScrollContainer>
+            </div>
             {selected.length > 0 && (
               <Text mt="md" color="teal">
                 Livres sélectionnés : {selected.join(', ')}
               </Text>
             )}
             <Group justify="center" mt="md">
-              <Button type="submit" disabled={selected.length === 0}>
+              <Button type="button" disabled={selected.length === 0} onClick={handleSubmit}>
                 Valider la sélection
               </Button>
             </Group>
-          </Paper>
+          </>
+        )}
+      </Paper>
+      {/* Modal d'ajout et modal de détails restent inchangés */}
+      {/* Scanner caméra pour ISBN avant d'ouvrir le formulaire */}
+      {popoverOpened && (
+        <Modal opened={popoverOpened} onClose={() => setPopoverOpened(false)} title="Scanner ISBN" centered size="md">
+          <div ref={setScannerNode} style={{ width: '100%', maxWidth: 350, height: 250, margin: '0 auto', borderRadius: 8, overflow: 'hidden', background: '#000' }} />
+          <Text mt="sm" color="blue">
+            {result ? `ISBN détecté : ${result}` : 'Scanne un code-barres ISBN de livre'}
+          </Text>
+          <TextInput label="ISBN" name="isbn" value={formData.isbn} onChange={handleFormChange} placeholder="Scanné ou à saisir manuellement" mt="md" />
+          <Center>
+            <Button
+              onClick={() => {
+                setPopoverOpened(false);
+                setFormOpened(true);
+              }}
+              disabled={!formData.isbn}
+            >
+              Valider
+            </Button>
+          </Center>
+        </Modal>
+      )}
+      <Modal opened={formOpened} onClose={() => setFormOpened(false)}  title="Ajouter ou incrémenter un livre" centered  size="xl" >
+        <form onSubmit={handleFormSubmit} style={{ width: '600px', maxWidth: '90vw', margin: '0 auto' }}>
+          <TextInput label="ISBN" name="isbn" value={formData.isbn} onChange={handleFormChange} required mb="md"/>
+          <TextInput label="Titre du livre" name="title"  value={formData.title} onChange={handleFormChange}  required  mb="md" />
+          <TextInput label="Auteur" name="author" value={formData.author}  onChange={handleFormChange} required mb="md" />
+          <Textarea label="Description" name="description"  value={formData.description} onChange={handleFormChange}  minRows={2}  mb="md"  />
+          <TextInput  label="Prix"  name="price"  value={formData.price}  onChange={handleFormChange}  required  mb="md"  />
+          <TextInput  label="Quantité"  name="quantite"  value={formData.quantite}  onChange={handleFormChange}  required  mb="md"/>
+          <Button mt="md" onClick={e => { e.preventDefault(); setShowCamera(true); }}>
+            Prendre une photo
+          </Button>
+          {showCamera && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <video ref={videoRef} autoPlay style={{ width: 320, height: 240, borderRadius: 12, background: '#000' }} />
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, gap: 24 }}>
+                <Button
+                  variant="outline"
+                  color="gray"
+                  radius="xl"
+                  size="md"
+                  style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={e => { e.preventDefault(); setFacingMode(facingMode === 'user' ? 'environment' : 'user'); }}
+                  title="Retourner la caméra"
+                >
+                  {facingMode === 'user' ? '🔄 Arrière' : '🔄 Avant'}
+                </Button>
+                <Button
+                  color="teal"
+                  radius="xl"
+                  size="xl"
+                  style={{ width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, boxShadow: '0 2px 8px #0002' }}
+                  onClick={e => { e.preventDefault(); handleCapture(); }}
+                  title="Prendre la photo"
+                >
+                  📸
+                </Button>
+                <Button
+                  color="red"
+                  radius="xl"
+                  size="md"
+                  style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={e => { e.preventDefault(); setShowCamera(false); }}
+                  title="Annuler"
+                >
+                  ✖
+                </Button>
+              </div>
+            </div>
+          )}
+          {/* Aperçu de la photo capturée */}
+          {capturedImage && (
+            <div style={{ marginTop: 10 }}>
+              <Text size="sm" color="dimmed" mb="xs">Aperçu de la photo :</Text>
+              <img src={capturedImage} alt="Aperçu" style={{ width: 150, borderRadius: 8 }} />
+            </div>
+          )}
+          <Center h={100}>
+            <Button type="submit">Ajouter / Incrémenter</Button>
+          </Center>
         </form>
       </Modal>
-
-      {/* Modal d'affichage des informations des livres sélectionnés */}
       <Modal
         opened={detailsOpened}
         onClose={() => setDetailsOpened(false)}
@@ -497,21 +524,20 @@ export default function   Resception() {
           <Text>Aucun livre sélectionné.</Text>
         ) : (
           editedBooks.map(book => (
-            <Paper key={book.livre_id} shadow="xs" p="md" mb="md" withBorder>
+            <Paper key={book.id} shadow="xs" p="md" mb="md" withBorder>
               <TextInput label="Titre" value={book.title} readOnly mb="md" />
               <TextInput label="Auteur" value={book.author} readOnly mb="md" />
-              <TextInput label="id" value={book.livre_id} readOnly mb="md" />
              <Group gap="xs" mb="md">
                 <TextInput
                   label="ISBN"
                   value={book.isbn.toString()}
-                  onChange={e => handleIsbnChange(book.livre_id, e.target.value)}
+                  onChange={e => handleIsbnChange(book.id, e.target.value)}
                   style={{ flex: 1 }}
                 />
                 <Button
                   variant="subtle"
                   color="blue"
-                  onClick={() => updateIsbn(book.livre_id, Number(book.isbn))}
+                  onClick={() => updateIsbn(book.id, book.livre_id, Number(book.isbn), book.isbn)}
                   title="Mettre à jour l'ISBN"
                   px={6}
                 >
@@ -523,14 +549,17 @@ export default function   Resception() {
               <TextInput
                 label="Quantité à ajouter"
                 type="number"
-                value={ajouts[book.livre_id] ?? ''}
-                onChange={e => handleAjoutChange(book.livre_id, e.target.value)}
+                value={ajouts[book.id] ?? ''}
+                onChange={e => handleAjoutChange(book.id, e.target.value)}
                 mb="md"
                 min={1}
               />
+              <Button>
+                photos
+              </Button>
               <Button
                 mt="md"
-                onClick={() => incrementInventaire(book, ajouts[book.livre_id] || 0)}
+                onClick={() => incrementInventaire(book, ajouts[book.id] || 0)}
               >
                 Valider (incrémenter la quantité)
               </Button>
@@ -538,6 +567,6 @@ export default function   Resception() {
           ))
         )}
       </Modal>
-    </Container>
+    </div>
   );
 }

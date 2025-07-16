@@ -1,55 +1,35 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { Container, Title, Text, Button, Paper, Center } from '@mantine/core';
-import Link from 'next/link';
-import { jwtDecode, JwtPayload } from 'jwt-decode';
 
-// Définis le type User selon ton JWT
-type User = JwtPayload & {
-  name?: string;
-  // Ajoute ici d'autres propriétés si besoin
-};
+import { Button, Group, Text, Title } from '@mantine/core';
+import Link from 'next/link';
+import styles from './style/hom.module.css';
+
 
 export default function Hom() {
-  const [token, setToken] = useState<string>('');
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('jwt');
-    if (storedToken) {
-      setToken(storedToken);
-      try {
-        const decoded = jwtDecode<User>(storedToken);
-        setUser(decoded);
-        console.log('Utilisateur connecté :', decoded);
-      } catch (e) {
-        setUser(null);
-      }
-    }
-  }, []);
-
   return (
-    <Container size="sm" my={40}>
-      <Paper shadow="md" p="xl" radius="md" withBorder>
-        <Title order={1} mb="md">
-          Bienvenue sur l'inventaire
-        </Title>
-        <Text color="dimmed" mb="lg">
-          Ceci est une page d’accueil construite avec Mantine et Next.js.
-        </Text>
-        <Center p={15}>
-          <Link href="/commande" passHref>
-            <Button component="a">
-              Passer une commande
-            </Button>
-          </Link>
-          <Link href="/inventaire" passHref>
-            <Button component="a" ml={30}>
-              Inventaire
-            </Button>
-          </Link>
-        </Center>
-      </Paper>
-    </Container>
+    <div className={styles.odooHome}>
+      <Title className={styles.handwrittenTitle} order={1}>
+        Bienvenue sur la plateforme de gestion CPH IVENTAIRE
+      </Title>
+      <Text className={styles.subtitle} size="xl" mt="md" mb="xl">
+        Compté et gére le stockage des livres et passé des ventes 
+        tous gardans un tracabilités fiables et sécurisées 
+      </Text>
+      <Group className={styles.group}  mt="md" mb="md">
+        <Link href="/commande">
+          <Button size="md" color="indigo" radius="xl">
+              Vente de livre
+          </Button>
+        </Link>
+        <Link href="/inventaire">
+          <Button size="md" variant="outline" color="indigo" radius="xl">
+            Accéder à l&apos;inventaire
+          </Button>
+        </Link>
+      </Group>
+      <Text className={styles.homText} color="dimmed" size="sm" mt="xs">
+        C’est gratuit pour toujours, avec un nombre illimité d’utilisateurs.
+      </Text>
+      </div>
   );
 }

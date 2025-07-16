@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/clients';
+import { NextRequest } from 'next/server';
 
 // Exemple de typage pour une ligne de la table "inventaire"
 type Inventaire = {
@@ -14,9 +14,10 @@ type Inventaire = {
 export async function GET(req: NextRequest) {
   const supabase = createClient();
 
-const { data, error } = await supabase.from('inventaire').select('*')
-
-
+  // Jointure sur livre_id pour récupérer l'image
+  const { data, error } = await supabase
+    .from('inventaire')
+    .select('*, livre(id, image)')
 
   if (error) {
     return Response.json({ error: error.message }, { status: 400 });

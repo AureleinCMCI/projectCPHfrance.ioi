@@ -1,57 +1,41 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Container, Center, Title, Text, Button, Paper, Group, Popover,
-  TextInput, Modal, CloseButton, Table, Loader
-} from '@mantine/core';
-import { IconCamera, IconEdit } from '@tabler/icons-react';
-import Quagga from '@ericblade/quagga2';
 
-// TypeScript type pour un item d'inventaire
+import Quagga, { QuaggaJSResultObject } from '@ericblade/quagga2';
+import { Badge, Button, Center, Checkbox, Loader, Modal, Paper, Table, Text, TextInput, Title } from '@mantine/core';
+import { IconCamera } from '@tabler/icons-react';
+import { jwtDecode } from 'jwt-decode';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import styles from './style/ScannerResception.module.css';
+
 type InventaireItem = {
+  id: number;
   livre_id: number;
   title: string;
   author: string;
-  isbn: string | number;
   quantite: number;
   price: number;
+  isbn: number;
+  livre?: { image?: string };
 };
 
 export default function Commande() {
-  const [formOpened, setFormOpened] = useState(false);
-  const [formData, setFormData] = useState({
-    isbn: '',
-    title: '',
-    author: '',
-    quantite: '',
-    price: '',
-  });
-  const [isbnError, setIsbnError] = useState('');
-  const [livreTrouve, setLivreTrouve] = useState<InventaireItem | null>(null);
-  const [result, setResult] = useState('');
   const [popoverOpened, setPopoverOpened] = useState(false);
   const [scannerReady, setScannerReady] = useState(false);
   const scannerRef = useRef<HTMLDivElement | null>(null);
-
-  // États pour l'inventaire
+  const [search, setSearch] = useState('');
+  const [formOpened, setFormOpened] = useState(false);
+  const [isbn, setIsbn] = useState('');
+  const [result, setResult] = useState('');
   const [inventaire, setInventaire] = useState<InventaireItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [supprimer, setSupprimer] = useState<number>(1); // quantité à supprimer
 
-  // Recherche
-  const [search, setSearch] = useState('');
-
-    // États pour la modal d'affichage des détails des livres sélectionnés
-    const [detailsOpened, setDetailsOpened] = useState(false);
-    const [editedBooks, setEditedBooks] = useState<InventaireItem[]>([]);
-    const [ajouts, setAjouts] = useState<{ [livre_id: number]: number }>({});
-
-  // Callback ref pour scanner
   const setScannerNode = useCallback((node: HTMLDivElement | null) => {
     scannerRef.current = node;
     setScannerReady(!!node);
   }, []);
 
-  // Gestion du scanner avec Quagga
   useEffect(() => {
     if (popoverOpened && scannerReady && scannerRef.current) {
       Quagga.init({
@@ -64,344 +48,239 @@ export default function Commande() {
       }, (err) => {
         if (!err) Quagga.start();
       });
-
-      Quagga.onDetected((data: any) => {
-        if (data && data.codeResult && data.codeResult.code) {
+      const onDetected = (data: QuaggaJSResultObject) => {
+        if (data?.codeResult?.code) {
           setResult(data.codeResult.code);
-          handleIsbnChangeManual(data.codeResult.code);
-          Quagga.stop();
-          setPopoverOpened(false);
+          setIsbn(data.codeResult.code);
         }
-      });
-
+      };
+      Quagga.onDetected(onDetected);
       return () => {
         Quagga.stop();
-        Quagga.offDetected();
+        Quagga.offDetected(onDetected);
       };
     }
-  }, [popoverOpened, scannerReady, inventaire]);
+  }, [popoverOpened, scannerReady]);
 
-  // Charger l'inventaire au chargement du composant
   useEffect(() => {
-    const fetchInventaire = async () => {
+    async function fetchInventaire() {
       setLoading(true);
       try {
         const response = await fetch('/api/inventaire', { method: 'GET' });
         const result = await response.json();
         setInventaire(result.data || []);
-      } catch (err) {
+      } catch {
         setInventaire([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    };
+    }
     fetchInventaire();
   }, []);
-
-  // Handler pour la saisie ou le scan de l'ISBN (recherche live)
-  const handleIsbnChangeManual = (isbn: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      isbn,
-    }));
-
-    if (isbn.length === 0) {
-      setLivreTrouve(null);
-      setIsbnError('');
-      setFormData((prev) => ({
-        ...prev,
-        title: '',
-        author: '',
-        price: '',
-        quantite: '',
-        quantiteAVendre: '',
-      }));
+  const filteredInventaire = inventaire.filter((item) =>
+    (item.title ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    (item.author ?? '').toLowerCase().includes(search.toLowerCase())
+  );
+/* décrémenter la quantité */
+  const decrementInventaire = async (livre: InventaireItem, quantite: number) => {
+    if (!quantite || quantite <= 0) {
+      alert("Veuillez saisir une quantité à supprimer supérieure à 0.");
       return;
     }
-
-    // Comparaison robuste (trim, suppression des espaces)
-    const livre = inventaire.find(
-      item =>
-        item.isbn.toString().replace(/\s/g, '') === isbn.trim().replace(/\s/g, '')
-    );
-    if (livre) {
-      setLivreTrouve(livre);
-      setIsbnError('');
-      setFormData((prev) => ({
-        ...prev,
-        title: livre.title,
-        author: livre.author,
-        price: livre.price.toString(),
-        quantite: livre.quantite.toString(),
-        // Ne touche pas à quantiteAVendre ici
-      }));
-    } else {
-      setLivreTrouve(null);
-      setIsbnError("Le livre n'est pas en stock !");
-      setFormData((prev) => ({
-        ...prev,
-        title: '',
-        author: '',
-        price: '',
-        quantite: '',
-        quantiteAVendre: '',
-      }));
-    }
-  };
-
-  // Handler pour la saisie manuelle dans le champ ISBN
-  const handleIsbnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleIsbnChangeManual(e.target.value);
-  };
-
-  // Handler pour les autres champs du formulaire (non ISBN)
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Handler pour la soumission du formulaire (incrémentation, si besoin)
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!livreTrouve) {
-      alert("Le livre n'est pas en stock !");
+    if (livre.quantite <= 0) {
+      alert("Ce livre n'est pas en stock !");
       return;
     }
-    // Ici, tu peux appeler ta logique d'ajout/incrémentation si besoin
-    alert("Livre trouvé dans l'inventaire !");
-    setFormOpened(false);
-    setFormData({
-      isbn: '',
-      title: '',
-      author: '',
-      quantite: '',
-      price: '',
-    });
-    setLivreTrouve(null);
-    setIsbnError('');
-  };
-
-  // Décrémenter la quantité d'un livre
-  const DecrementeInventaire = async (livre: InventaireItem, ajout: number) => {
+    if (quantite > livre.quantite) {
+      alert("La quantité à supprimer est supérieure à la quantité en stock !");
+      return;
+    }
     try {
       setLoading(true);
-      const res = await fetch('/api/commande', {
+      const res = await fetch('/api/ScannerResception', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id: livre.livre_id, ajout }),
+        body: JSON.stringify({ id: livre.id, supprimer: quantite, isbn: livre.isbn }),
       });
       if (!res.ok) throw new Error('Erreur lors de la décrémentation');
-      // Attendre que l'inventaire soit bien rechargé avant de continuer
-      await new Promise(resolve => setTimeout(resolve, 300));
       const response = await fetch('/api/inventaire', { method: 'GET' });
       const result = await response.json();
       setInventaire(result.data || []);
       setLoading(false);
-      alert(`Quantité du livre "${livre.title}" décrémentée de ${ajout} !`);
-    } catch (err) {
+      alert(`Quantité du livre "${livre.title}" décrémentée de ${quantite} !`);
+      setFormOpened(false);
+      setSupprimer(1);
+    } catch (error) {
+      console.error('Erreur:', error);
       setLoading(false);
       alert('Erreur lors de la décrémentation');
     }
   };
 
-  // Filtrage de l'inventaire selon la recherche
-  const filteredInventaire = inventaire.filter((item) =>
-    (item.title ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (item.author ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+/*Ajouté une commande dans la table commande */
+const ajouterCommande = async (livre: InventaireItem, quantite: number) => {
+  if (!user) {
+    alert("Utilisateur non connecté !");
+    return;
+  }
+  try {
+    const res = await fetch('/api/commande', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ livre_id: livre.livre_id, quantite, user_id: user.id }),
+    });
 
-  // Afficher les détails d'un livre
-  const openBookDetails = (book: InventaireItem) => {
-    setEditedBooks([book]);
-    setDetailsOpened(true);
-  };
+    if (!res.ok) throw new Error('Erreur lors de l\'ajout de la commande');
+    const response = await fetch('/api/inventaire', { method: 'GET' });
+    const result = await response.json();
+    setInventaire(result.data || []);
+    alert(`Commande ajoutée pour le livre "${livre.title}" avec la quantité ${quantite} !`);
+    setFormOpened(false);
+  } catch (e) {
+    console.error('Erreur:', e);
+    alert('Erreur lors de l\'ajout de la commande');
+  }
+};
 
-  // Handler pour changer la quantité à vendre dans la modale de détail
-  const handleAjoutChange = (livre_id: number, value: string) => {
-    setAjouts((prev) => ({ ...prev, [livre_id]: Number(value) }));
-  };
-
-  // Handler pour mettre à jour l'ISBN côté serveur (modale détail)
-  const updateIsbn = async (livre_id: number, isbn: number) => {
+// Décodage du JWT pour récupérer l'utilisateur connecté
+let user: { id: string; name: string; avatar?: string } | null = null;
+if (typeof window !== 'undefined') {
+  const token = localStorage.getItem('jwt');
+  if (token) {
     try {
-      const res = await fetch('/api/updateIsbn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ livre_id, isbn }),
-      });
-      if (!res.ok) throw new Error('Erreur lors de la mise à jour de l\'ISBN');
-      alert('ISBN mis à jour !');
-    } catch (err) {
-      alert('Erreur lors de la mise à jour de l\'ISBN');
-    }
-  };
+      user = jwtDecode<{ id: string; name: string; avatar?: string }>(token);
+    } catch {}
+  }
+}
 
   return (
-    <Container size="sm" my={40}>
-      {/* Modal du formulaire d'ajout/incrémentation */}
-      <Modal opened={formOpened}
-        onClose={() => setFormOpened(false)}
-        title="Ajouter ou incrémenter un livre" centered size="xl">
+    <div className={styles.bgGradient}>
+      <Paper shadow="xl" radius="lg" p="xl" withBorder className={styles.cardTable}>
+        <div className={styles.headerRow}>
+          <Title order={2} className={styles.title}>Liste des livres</Title>
+          <div className={styles.actions}>
+            <Button color="blue" radius="xl" onClick={() => setPopoverOpened(true)} leftSection={<IconCamera size={18} />}>Scanner ISBN</Button>
+          </div>
+        </div>
+        <TextInput
+          className={styles.searchInput}
+          placeholder="Rechercher par titre ou auteur..."
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          leftSection={<IconCamera size={18} />}
+          mb="md"
+        />
+        {loading ? (
+          <Center>
+            <Loader />
+          </Center>
+        ) : (
+          <>
+            <div className={styles.tableContainer}>
+              <Table.ScrollContainer minWidth={900} type="native">
+                <Table striped highlightOnHover withColumnBorders className={styles.tableModern}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Sélectionner</Table.Th>
+                      <Table.Th>Titre</Table.Th>
+                      <Table.Th>Auteur</Table.Th>
+                      <Table.Th>Quantité</Table.Th>
+                      <Table.Th>Prix</Table.Th>
+                      <Table.Th>ISBN</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {filteredInventaire.map((item) => (
+                      <Table.Tr key={item.id}>
+                        <Table.Td>
+                          <Checkbox
+                            checked={selected.includes(item.id)}
+                            onChange={() => setSelected((prev) => prev.includes(item.id) ? prev.filter((i) => i !== item.id) : [...prev, item.id])}
+                          />
+                        </Table.Td>
+                        <Table.Td>{item.title}</Table.Td>
+                        <Table.Td>{item.livre_id}</Table.Td>
+                        <Table.Td>{item.author}</Table.Td>
+                        <Table.Td>{item.quantite}</Table.Td>
+                        <Table.Td>{item.price} €</Table.Td>
+                        <Table.Td>{item.isbn}</Table.Td>
+                        <Table.Td> 
+                        <Badge   color={item.quantite > 5 ? 'green' : item.quantite > 0 ? 'yellow' : 'red'} variant="light" radius="sm">
+                          {item.quantite > 5 ? 'En stock' : item.quantite > 0 ? 'Faible' : 'Rupture'}
+                        </Badge>
+                        </Table.Td>
 
-        <form onSubmit={handleFormSubmit}>
-          <TextInput label="ISBN" name="isbn" value={formData.isbn} onChange={handleIsbnChange} required error={isbnError} />
-          {livreTrouve ? (
-            <>
-              <TextInput label="Titre du livre" name="title" value={formData.title} readOnly mb="md" />
-              <TextInput label="Auteur" name="author" value={formData.author} readOnly mb="md" />
-              <TextInput label="Prix" name="price" value={formData.price} readOnly mb="md" />
-              <TextInput label="Quantité en stock" name="quantite" value={formData.quantite} readOnly mb="md" />
-
-            </>
-          ) : (
-            isbnError && (
-              <Text color="red" mb="md">{isbnError}</Text>
-            )
-          )}
-        </form>
-      </Modal>
-
-      {/* Bloc Scanner */}
-      <Paper shadow="md" p="xl" radius="md" withBorder>
-        <Title order={1} mb="md">
-          Scanner un ISBN
-        </Title>
-        <Text color="dimmed" mb="lg">
-          Place le code-barres ISBN du livre devant la caméra.
-        </Text>
-        <Group mt="md">
-          <Popover
-            width={350}
-            position="bottom"
-            withArrow
-            shadow="md"
-            opened={popoverOpened}
-            onChange={setPopoverOpened}
-            trapFocus
-            withinPortal={false}
-          >
-            <Popover.Target>
-              <Button
-                color={popoverOpened ? 'red' : 'blue'}
-                onClick={() => {
-                  setResult('');
-                  setPopoverOpened((o) => !o);
-                  setFormData((prev) => ({ ...prev, isbn: '' }));
-                }}
-                variant={popoverOpened ? 'outline' : 'filled'}
-                leftSection={<IconCamera />}
-              >
-                {popoverOpened ? 'Désactiver la caméra' : 'Activer la caméra'}
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <CloseButton aria-label="Afficher le formulaire"
-                onClick={() => {
-                  setPopoverOpened(false);
-                  setTimeout(() => setFormOpened(true), 200);
-                }}
-              />
-              <div
-                ref={setScannerNode}
-                style={{
-                  width: '100%',
-                  maxWidth: 350,
-                  height: 250,
-                  margin: '0 auto',
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                  background: '#000'
-                }}
-              />
-              <Text mt="sm" color="blue">
-                {result ? `ISBN détecté : ${result}` : 'Scanne un code-barres ISBN de livre'}
-              </Text>
-              <TextInput
-                label="ISBN"
-                name="isbn"
-                value={formData.isbn}
-                onChange={handleIsbnChange}
-                placeholder="Scanné ou à saisir manuellement"
-                mt="md"
-              />
-              <Center>
-                <Button aria-label="Afficher le formulaire"
-                  onClick={() => {
-                    setPopoverOpened(false);
-                    setTimeout(() => setFormOpened(true), 200);
-                  }}>
-                  validé
-                </Button>
-              </Center>
-            </Popover.Dropdown>
-          </Popover>
-        </Group>
-        {!popoverOpened && result && (
-          <Text mt="sm" color="teal" size="xl">
-            ✅ ISBN détecté : {result}
-          </Text>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            </div>
+          </>
         )}
-        <Center mt="xl">
-          <Button onClick={() => setFormOpened(true)}>
-            Ajouter / Incrémenter un livre manuellement
-          </Button>
-        </Center>
       </Paper>
-
-      <TextInput
-        mt="lg"
-        placeholder="Recherche par titre ou auteur"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
-
-      {loading ? (
-        <Center my="lg"><Loader /></Center>
-      ) : (
-        <Table mt="md" striped highlightOnHover>
-          <thead>
-            <tr>
-              <th>Titre</th>
-              <th>Auteur</th>
-              <th>ISBN</th>
-              <th>Quantité</th>
-              <th>Prix</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredInventaire.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
-                  <Text>Aucun livre trouvé.</Text>
-                </td>
-              </tr>
-            ) : (
-              filteredInventaire.map(book => (
-                <tr key={book.livre_id}>
-                  <td>{book.title}</td>
-                  <td>{book.author}</td>
-                  <td>{book.isbn}</td>
-                  <td>{book.quantite}</td>
-                  <td>{book.price}</td>
-                  <td>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      color="blue"
-                      onClick={() => openBookDetails(book)}
-                    >
-                      Détails
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
+      {/* Scanner ISBN */}
+      {popoverOpened && (
+        <Modal opened={popoverOpened} onClose={() => setPopoverOpened(false)} title="Scanner ISBN" centered size="md">
+          <div ref={setScannerNode} style={{ width: '100%', maxWidth: 350, height: 250, margin: '0 auto', borderRadius: 8, overflow: 'hidden', background: '#000' }} />
+          <Text mt="sm" color="blue">
+            {result ? `ISBN détecté : ${result}` : 'Scanne un code-barres ISBN de livre'}
+          </Text>
+          <TextInput label="ISBN" name="isbn" value={isbn} onChange={e => setIsbn(e.target.value)} placeholder="Scanné ou à saisir manuellement" mt="md" />
+          <Center>
+            <Button
+              onClick={() => {
+                setPopoverOpened(false);
+                setFormOpened(true);
+              }}
+              disabled={!isbn}
+            >
+              Valider
+            </Button>
+          </Center>
+        </Modal>
       )}
-    </Container>
+      {/* Affichage des infos du livre trouvé */}
+      <Modal opened={formOpened} onClose={() => { setFormOpened(false); setSupprimer(1); }} title="Informations du livre" centered size="md">
+        {(() => {
+          const livre = inventaire.find(item => item.isbn.toString() === isbn.trim());
+          if (isbn && !livre) {
+            return <Text color="red" ta="center" size="lg" my="xl">Livre pas en stock !</Text>;
+          }
+          if (livre) {
+            return (
+              <div style={{ width: 400, maxWidth: '90vw', margin: '0 auto' }}>
+                {/* Affiche le nom de l'utilisateur connecté */}
+                <TextInput label="Vendeur" value={user?.name || ''} readOnly mb="md" />
+                <TextInput label="ISBN" value={livre.isbn} readOnly mb="md" />
+                <TextInput label="Titre du livre" value={livre.title} readOnly mb="md" />
+                <TextInput label="Auteur" value={livre.author} readOnly mb="md" />
+                <TextInput label="Prix" value={livre.price} readOnly mb="md" />
+                <TextInput label="Quantité en stock" value={livre.quantite} readOnly mb="md" />
+                <TextInput
+                  label="Quantité à retirer"
+                  type="number"
+                  min={1}
+                  max={livre.quantite}
+                  value={supprimer}
+                  onChange={e => setSupprimer(Number(e.target.value))}
+                  mb="md"
+                />
+                <Button
+                  mt="md"
+                  onClick={async () => {
+                    await decrementInventaire(livre, supprimer);
+                    await ajouterCommande(livre, supprimer);
+                  }}
+                >
+                    Valider la vente
+                </Button>
+              </div>
+            );
+          }
+          return null;
+        })()}
+      </Modal>
+    </div>
   );
 }

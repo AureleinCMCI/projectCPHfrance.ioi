@@ -1,35 +1,31 @@
-import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/clients';
+import { NextRequest } from 'next/server';
 
-
-
-/* delete Quantité inventaire */
-export async function DELETE(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = createClient();
-    const { livre_id, ajout } = await request.json();
+    const { data, error } = await supabase.from('commande').select('*');
 
-    // Récupérer la quantité actuelle
-    const { data: produit, error: fetchError } = await supabase
-      .from('inventaire')
-      .select('quantite')
-      .eq('id', livre_id)
-      .maybeSingle();
-
-    if (fetchError || !produit) {
-      return new Response(JSON.stringify({ error: "Produit non trouvé" }), { status: 404 });
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
     }
 
-    // Calculer la nouvelle quantité
-    const nouvelleQuantite = produit.quantite - ajout;
+    return new Response(JSON.stringify({ data }), { status: 200 });
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ error: "Erreur serveur", details: err.message }),
+      { status: 500 }
+    );
+  }
+}
 
-    // Mettre à jour la quantité
-    const { data, error } = await supabase
-      .from('inventaire')
-      .update({ quantite: nouvelleQuantite })
-      .eq('id', livre_id)
-      .select()
-      .maybeSingle();
+/* delete Quantité inventaire */
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient();
+    const { livre_id, quantite , user_id} = await request.json();
+
+    const { data, error } = await supabase.from('commande').insert([{ livre_id , quantite, user_id}]).select();
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), { status: 400 });

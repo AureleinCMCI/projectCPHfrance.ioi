@@ -1,0 +1,114 @@
+
+
+@media (max-width: 1200px) {
+  .fullWidthTable {
+    min-width: 700px;
+  }
+}
+
+@media (max-width: 800px) {
+  .fullWidthTableContainer {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+  .fullWidthTable {
+    min-width: 400px;
+    font-size: 13px;
+  }
+  .Center {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 500px) {
+  .fullWidthTable {
+    min-width: 320px;
+    font-size: 11px;
+  }
+  .Center {
+    padding: 4px;
+  }
+}
+
+/* Fond dégradé général */
+.bgGradient {
+  min-height: 100vh;
+  padding: 32px 0;
+}
+
+.cardTable {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px #0001;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 2rem;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.searchInput {
+  max-width: 350px;
+  margin-bottom: 24px;
+}
+
+.tableModern {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f9fafb;
+  font-size: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .cardTable {
+    max-width: 98vw;
+    padding: 12px;
+  }
+  .tableModern {
+    font-size: 0.95rem;
+  }
+}
+@media (max-width: 800px) {
+  .cardTable {
+    max-width: 100vw;
+    border-radius: 0;
+    padding: 4px;
+  }
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .searchInput {
+    max-width: 100%;
+  }
+  .tableModern {
+    font-size: 0.9rem;
+  }
+}
+@media (max-width: 500px) {
+  .cardTable {
+    padding: 0;
+  }
+  .tableModern {
+    font-size: 0.85rem;
+  }
+}
