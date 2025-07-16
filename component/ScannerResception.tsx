@@ -243,7 +243,7 @@ export default function   Resception() {
       ...prev,
       [id]: Number(value)
     }));
-  };
+  };ezezezez
 
   // Gestion du changement de l'ISBN
   const handleIsbnChange = (id: number, newIsbn: string) => {
